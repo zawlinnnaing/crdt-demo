@@ -1,6 +1,6 @@
 import { CRDT } from "./CRDT";
 
-interface LWWState<T> {
+export interface LWWState<T> {
   peerId: string;
   timestamp: number;
   value: T;

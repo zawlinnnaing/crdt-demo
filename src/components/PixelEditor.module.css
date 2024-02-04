@@ -1,0 +1,13 @@
+.editor {
+  margin: 10px;
+
+  input {
+    display: block;
+  }
+}
+
+.canvas {
+  width: 400px;
+  height: 400px;
+  border: 1px solid white;
+}
