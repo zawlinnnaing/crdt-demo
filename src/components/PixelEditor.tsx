@@ -9,7 +9,10 @@ import {
 import { HexColor, PixelCRDT } from "../crdt/PixelCRDT";
 import styles from "./PixelEditor.module.css";
 
-
+interface Coordinate {
+  x: number;
+  y: number;
+}
 
 interface PixelEditorProps {
   id: string;
@@ -26,7 +29,6 @@ export default function PixelEditor(props: PixelEditorProps) {
   const { width = 400, height = 400 } = props;
   const [currentColor, setCurrentColor] = useState<HexColor>("#ffffff");
   const [pixelData, setPixelData] = useState<PixelCRDT | null>(null);
-  const [pixelState, setPixelState] = useState<PixelCRDT["state"] | null>(null);
   const [mousePosition, setMousePosition] = useState<Coordinate | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -37,7 +39,6 @@ export default function PixelEditor(props: PixelEditorProps) {
   useEffect(() => {
     if (props.state && pixelData) {
       pixelData?.merge(props.state);
-      setPixelState(pixelData.state);
     }
   }, [pixelData, props.state]);
 
@@ -62,6 +63,30 @@ export default function PixelEditor(props: PixelEditorProps) {
     setMousePosition(getCoordinate(event));
   };
 
+  const updateState = (
+    originalCoord: Coordinate,
+    newMousePosition: Coordinate,
+    color: string
+  ) => {
+    if (!pixelData) {
+      return;
+    }
+    const [startX, endX] =
+      originalCoord.x > newMousePosition.x
+        ? [newMousePosition.x, originalCoord.x]
+        : [originalCoord.x, newMousePosition.x];
+    const [startY, endY] =
+      originalCoord.y > newMousePosition.y
+        ? [newMousePosition.y, originalCoord.y]
+        : [originalCoord.y, newMousePosition.y];
+    for (let x = startX; x <= endX; x++) {
+      for (let y = startY; y <= endY; y++) {
+        pixelData?.set(x, y, color);
+      }
+    }
+    props.onStateChange(pixelData.state);
+  };
+
   const draw = (
     originalMousePosition: Coordinate,
     newMousePosition: Coordinate,
@@ -84,7 +109,7 @@ export default function PixelEditor(props: PixelEditorProps) {
     context.closePath();
 
     context.stroke();
-
+    updateState(originalMousePosition, newMousePosition, color);
     setMousePosition(newMousePosition);
   };
 
