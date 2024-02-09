@@ -2,6 +2,7 @@ import {
   CSSProperties,
   ChangeEventHandler,
   PointerEventHandler,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -26,7 +27,7 @@ interface PixelEditorProps {
 }
 
 export default function PixelEditor(props: PixelEditorProps) {
-  const { width = 400, height = 400 } = props;
+  const { width = 400, height = 400, onStateChange } = props;
   const [currentColor, setCurrentColor] = useState<HexColor>("#ffffff");
   const [pixelData, setPixelData] = useState<PixelCRDT | null>(null);
   const [mousePosition, setMousePosition] = useState<Coordinate | null>(null);
@@ -35,12 +36,6 @@ export default function PixelEditor(props: PixelEditorProps) {
   useEffect(() => {
     setPixelData(new PixelCRDT(props.id));
   }, [props.id]);
-
-  useEffect(() => {
-    if (props.state && pixelData) {
-      pixelData?.merge(props.state);
-    }
-  }, [pixelData, props.state]);
 
   const getCoordinate = (
     event: Pick<PointerEvent, "pageX" | "pageY">
@@ -63,55 +58,80 @@ export default function PixelEditor(props: PixelEditorProps) {
     setMousePosition(getCoordinate(event));
   };
 
-  const updateState = (
-    originalCoord: Coordinate,
-    newMousePosition: Coordinate,
-    color: string
-  ) => {
-    if (!pixelData) {
-      return;
-    }
-    const [startX, endX] =
-      originalCoord.x > newMousePosition.x
-        ? [newMousePosition.x, originalCoord.x]
-        : [originalCoord.x, newMousePosition.x];
-    const [startY, endY] =
-      originalCoord.y > newMousePosition.y
-        ? [newMousePosition.y, originalCoord.y]
-        : [originalCoord.y, newMousePosition.y];
-    for (let x = startX; x <= endX; x++) {
-      for (let y = startY; y <= endY; y++) {
-        pixelData?.set(x, y, color);
+  const updateState = useCallback(
+    (
+      originalCoord: Coordinate,
+      newMousePosition: Coordinate,
+      color: string
+    ) => {
+      if (!pixelData) {
+        return;
       }
-    }
-    props.onStateChange(pixelData.state);
-  };
+      pixelData?.set({
+        from: originalCoord,
+        to: newMousePosition,
+        color,
+      });
+      onStateChange(pixelData.state);
+    },
+    [pixelData, onStateChange]
+  );
 
-  const draw = (
-    originalMousePosition: Coordinate,
-    newMousePosition: Coordinate,
-    color: string
-  ) => {
-    if (!canvasRef.current) {
+  const draw = useCallback(
+    (
+      originalMousePosition: Coordinate,
+      newMousePosition: Coordinate,
+      color: string
+    ) => {
+      if (!canvasRef.current) {
+        return;
+      }
+      const context = canvasRef.current.getContext("2d");
+      if (!context) {
+        return;
+      }
+      context.strokeStyle = color;
+      context.lineJoin = "round";
+      context.lineWidth = 2;
+
+      context.beginPath();
+      context.moveTo(originalMousePosition.x, originalMousePosition.y);
+      context.lineTo(newMousePosition.x, newMousePosition.y);
+      context.closePath();
+
+      context.stroke();
+      updateState(originalMousePosition, newMousePosition, color);
+      setMousePosition(newMousePosition);
+    },
+    [updateState]
+  );
+
+  const clearCanvas = useCallback(() => {
+    const context = canvasRef.current?.getContext("2d");
+    if (!context || !canvasRef.current) {
       return;
     }
-    const context = canvasRef.current.getContext("2d");
-    if (!context) {
-      return;
+    context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+  }, []);
+
+  const redraw = useCallback(
+    (states: PixelCRDT["state"]) => {
+      clearCanvas();
+      for (const [, state] of Object.entries(states)) {
+        if (!state.value) {
+          continue;
+        }
+        draw(state.value.from, state.value.to, state.value.color);
+      }
+    },
+    [clearCanvas, draw]
+  );
+  useEffect(() => {
+    if (props.state && pixelData) {
+      pixelData?.merge(props.state);
+      redraw(pixelData.state);
     }
-    context.strokeStyle = color;
-    context.lineJoin = "round";
-    context.lineWidth = 2;
-
-    context.beginPath();
-    context.moveTo(originalMousePosition.x, originalMousePosition.y);
-    context.lineTo(newMousePosition.x, newMousePosition.y);
-    context.closePath();
-
-    context.stroke();
-    updateState(originalMousePosition, newMousePosition, color);
-    setMousePosition(newMousePosition);
-  };
+  }, [pixelData, props.state, redraw]);
 
   const handlePointerMove: PointerEventHandler<HTMLCanvasElement> = (event) => {
     if (
@@ -126,7 +146,6 @@ export default function PixelEditor(props: PixelEditorProps) {
       return;
     }
 
-    pixelData?.set(newMousePosition.x, newMousePosition.y, currentColor);
     draw(mousePosition, newMousePosition, currentColor);
   };
 

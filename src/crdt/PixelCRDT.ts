@@ -1,38 +1,41 @@
 import { CRDT } from "./CRDT";
 import { LWWMap } from "./LWWMap";
+import { Coordinate } from "./types";
 
 export type HexColor = string;
 
+export type DrawInfo = {
+  from: Coordinate;
+  to: Coordinate;
+  color: HexColor;
+};
+
 export class PixelCRDT
-  implements CRDT<LWWMap<HexColor>["state"], LWWMap<HexColor>["value"]>
+  implements CRDT<LWWMap<DrawInfo>["state"], LWWMap<DrawInfo>["value"]>
 {
   readonly id: string;
-  lwwMap: LWWMap<HexColor>;
+  lwwMap: LWWMap<DrawInfo>;
 
   constructor(id: string) {
     this.id = id;
     this.lwwMap = new LWWMap(id, {});
   }
 
-  static key(x: number, y: number): string {
-    return `${x}-${y}`;
+  static key(drawInfo: DrawInfo): string {
+    return `${drawInfo.from.x}-${drawInfo.from.y}->${drawInfo.to.x}-${drawInfo.to.y}`;
   }
 
-  set(x: number, y: number, value: HexColor) {
-    const key = PixelCRDT.key(x, y);
-    this.lwwMap.set(key, value);
+  set(drawInfo: DrawInfo) {
+    const key = PixelCRDT.key(drawInfo);
+    this.lwwMap.set(key, drawInfo);
   }
 
-  get(x: number, y: number): HexColor {
-    return this.lwwMap.get(PixelCRDT.key(x, y)) ?? "#ffffff";
-  }
-
-  merge(remoteState: LWWMap<HexColor>["state"]): void {
+  merge(remoteState: LWWMap<DrawInfo>["state"]): void {
     this.lwwMap.merge(remoteState);
   }
 
-  delete(x: number, y: number) {
-    this.lwwMap.delete(PixelCRDT.key(x, y));
+  delete(drawInfo: DrawInfo) {
+    this.lwwMap.delete(PixelCRDT.key(drawInfo));
   }
 
   get state() {

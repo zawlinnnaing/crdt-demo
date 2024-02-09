@@ -1,16 +1,9 @@
-import PixelEditor from "./components/PixelEditor";
+import ArtBoard from "./components/ArtBoard";
 
 function App() {
   return (
     <>
-      <PixelEditor
-        id="alice"
-        onStateChange={() => {}}
-        style={{
-          width: 100,
-          height: 100,
-        }}
-      />
+      <ArtBoard />
     </>
   );
 }
