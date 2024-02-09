@@ -54,8 +54,11 @@ export default function PixelEditor(props: PixelEditorProps) {
   };
 
   const handlePointerDown: PointerEventHandler<HTMLCanvasElement> = (event) => {
-    canvasRef.current?.setPointerCapture(event.pointerId);
     setMousePosition(getCoordinate(event));
+  };
+
+  const handlePointerUp: PointerEventHandler<HTMLCanvasElement> = () => {
+    setMousePosition(null);
   };
 
   const updateState = useCallback(
@@ -100,10 +103,9 @@ export default function PixelEditor(props: PixelEditorProps) {
       context.closePath();
 
       context.stroke();
-      updateState(originalMousePosition, newMousePosition, color);
       setMousePosition(newMousePosition);
     },
-    [updateState]
+    []
   );
 
   const clearCanvas = useCallback(() => {
@@ -134,10 +136,7 @@ export default function PixelEditor(props: PixelEditorProps) {
   }, [pixelData, props.state, redraw]);
 
   const handlePointerMove: PointerEventHandler<HTMLCanvasElement> = (event) => {
-    if (
-      !canvasRef.current?.hasPointerCapture(event.pointerId) ||
-      !mousePosition
-    ) {
+    if (!mousePosition) {
       return;
     }
 
@@ -147,6 +146,7 @@ export default function PixelEditor(props: PixelEditorProps) {
     }
 
     draw(mousePosition, newMousePosition, currentColor);
+    updateState(mousePosition, newMousePosition, currentColor);
   };
 
   return (
@@ -156,13 +156,11 @@ export default function PixelEditor(props: PixelEditorProps) {
         ref={canvasRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
-        onPointerUp={(event) => {
-          canvasRef.current?.releasePointerCapture(event.pointerId);
-        }}
+        onPointerUp={handlePointerUp}
         width={width}
         height={height}
       />
-      <input type="color" onChange={handlePaletteChange} />
+      <input type="color" onChange={handlePaletteChange} value={currentColor} />
     </div>
   );
 }
